@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f5f1e8" />
+    <title>今日 · 日常打卡</title>
+    <link rel="stylesheet" href="./theme.css" />
+  </head>
+  <body class="mobile-shell" data-page-id="today">
+    <a class="skip-link" href="#main-content">跳转到主要内容</a>
+
+    <header class="app-header">
+      <div>
+        <div class="greet">早上好，今天是好日子</div>
+        <div class="title">今日</div>
+      </div>
+      <span class="pill" id="todayPill">待打卡</span>
+    </header>
+
+    <main id="main-content" tabindex="-1">
+      <section class="panel ring-card" aria-label="今日完成率">
+        <div class="ring" id="todayRing" style="--p:0">
+          <span class="r-val" id="ringVal">0%</span>
+          <span class="r-label">今日完成</span>
+        </div>
+        <div class="ring-nums">
+          <div><span class="big" id="doneN">0</span><span class="small"> / <span id="totalN">0</span> 项已完成</span></div>
+          <div><span class="big" style="font-size:15px">🔥</span><span class="small"> 已连续打卡 <b id="streakN">0</b> 天</span></div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="quickTitle">
+        <div class="panel-label"><span id="quickTitle">快捷操作</span></div>
+        <div class="quick-row">
+          <button class="qb" type="button" data-action="all">
+            <span class="emo">🎯</span>全部打卡
+          </button>
+          <button class="qb" type="button" data-action="scroll">
+            <span class="emo">➕</span>去添加任务
+          </button>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="listTitle" data-anchor-id="today.list">
+        <div class="panel-label"><span id="listTitle">今日待办</span></div>
+        <div id="todayList" class="empty">正在加载…</div>
+      </section>
+
+      <section class="panel" aria-labelledby="tlTitle">
+        <div class="panel-label"><span id="tlTitle">动态时间线 · 最近打卡</span></div>
+        <div class="tl" id="timeline"></div>
+      </section>
+    </main>
+
+    <nav class="tabbar" aria-label="主导航">
+      <a href="index.html" class="on"><span class="ti">☀️</span>今日</a>
+      <a href="calendar.html"><span class="ti">📅</span>日历</a>
+      <a href="tasks.html"><span class="ti">📝</span>我的任务</a>
+      <a href="stats.html"><span class="ti">📊</span>统计</a>
+      <a href="me.html"><span class="ti">👤</span>我的</a>
+    </nav>
+
+    <script src="./app.js"></script>
+    <script>
+      (function () {
+        var A = window.App;
+        var date = A.today();
+        var listEl = document.getElementById("todayList");
+        var tpl = document.getElementById("tpl-none");
+
+        function render() {
+          var tasks = A.getTasks().filter(function (t) { return t.enable; });
+          var done = A.doneOn(date);
+          var pct = tasks.length ? Math.round((done.length / tasks.length) * 100) : 0;
+          document.getElementById("todayRing").style.setProperty("--p", pct);
+          document.getElementById("ringVal").textContent = pct + "%";
+          document.getElementById("doneN").textContent = done.length;
+          document.getElementById("totalN").textContent = tasks.length;
+          document.getElementById("streakN").textContent = A.streakCurrent();
+          var pill = document.getElementById("todayPill");
+          pill.textContent = done.length >= tasks.length && tasks.length ? "全部完成 🎉" : tasks.length ? "待打卡" : "暂无";
+          pill.className = "pill" + (done.length >= tasks.length && tasks.length ? " hot" : "");
+
+          if (!tasks.length) {
+            listEl.innerHTML = '<div class="empty">还没有任务，去「我的任务」添加吧</div>';
+          } else {
+            listEl.innerHTML = "";
+            tasks.forEach(function (t) {
+              var isd = done.indexOf(t.id) > -1;
+              var d = document.createElement("div");
+              d.className = "check" + (isd ? " done" : "");
+              d.innerHTML =
+                '<span class="c-cir">' + (isd ? "✓" : "") + "</span>" +
+                '<span class="c-name">' + A.esc(t.name) + "</span>" +
+                '<span class="tag">' + A.esc(t.type || "循环任务") + "</span>";
+              d.addEventListener("click", function () {
+                var nd = !isd;
+                A.setDone(t.id, date, nd);
+                A.toast(nd ? "已打卡 ✓" : "已取消打卡");
+                render();
+              });
+              listEl.appendChild(d);
+            });
+          }
+        }
+
+        document.querySelector('[data-action="all"]').addEventListener("click", function () {
+          var tasks = A.getTasks().filter(function (t) { return t.enable; });
+          tasks.forEach(function (t) { A.setDone(t.id, date, true); });
+          A.toast("全部完成 🎉");
+          render();
+        });
+        document.querySelector('[data-action="scroll"]').addEventListener("click", function () {
+          location.href = "tasks.html";
+        });
+
+        function renderTl() {
+          var map = A.getRecords();
+          var arr = Object.keys(map).sort().reverse().slice(0, 6);
+          var wrap = document.getElementById("timeline");
+          if (!arr.length) { wrap.innerHTML = '<div class="tl-item"><div class="t-text">暂无打卡动态</div></div>'; return; }
+          wrap.innerHTML = "";
+          arr.forEach(function (k) {
+            var names = A.getTasks()
+              .filter(function (t) { return map[k].indexOf(t.id) > -1; })
+              .map(function (t) { return t.name; });
+            if (!names.length) return;
+            var it = document.createElement("div");
+            it.className = "tl-item";
+            it.innerHTML =
+              '<div class="t-time">' + k + "</div>" +
+              '<div class="t-text">完成了 ' + names.length + " 项：" + A.esc(names.join("、")) + "</div>";
+            wrap.appendChild(it);
+          });
+        }
+
+        render();
+        renderTl();
+      })();
+    </script>
+    <style>
+      .today-del { display: none; }
+    </style>
+  </body>
+</html>
