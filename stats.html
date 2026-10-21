@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f5f1e8" />
+    <title>统计 · 日常打卡</title>
+    <link rel="stylesheet" href="./theme.css" />
+  </head>
+  <body class="mobile-shell" data-page-id="stats">
+    <a class="skip-link" href="#main-content">跳转到主要内容</a>
+
+    <header class="app-header">
+      <div>
+        <div class="greet">你的坚持值得被看见</div>
+        <div class="title">统计</div>
+      </div>
+      <span class="pill hot">坚持就是胜利</span>
+    </header>
+
+    <main id="main-content" tabindex="-1">
+      <section class="panel">
+        <div class="stat-cards">
+          <div class="stat"><div class="v" id="totalDays">0</div><div class="k">累计打卡天数</div></div>
+          <div class="stat"><div class="v" id="streak">0</div><div class="k">当前连续天数</div></div>
+          <div class="stat"><div class="v" id="rate">0%</div><div class="k">总体完成率</div></div>
+          <div class="stat"><div class="v" id="todayDone">0</div><div class="k">今日完成项</div></div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="weekTitle">
+        <div class="panel-label"><span id="weekTitle">本周完成率</span></div>
+        <div class="bar"><span id="weekBar"></span></div>
+        <div class="small" id="weekTxt" style="color:var(--color-muted);font-size:13px;margin-top:8px"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="badgeTitle">
+        <div class="panel-label"><span id="badgeTitle">成就徽章</span></div>
+        <div class="badges" id="badges"></div>
+        <div class="small" id="nextGoal" style="color:var(--color-muted);font-size:13px;margin-top:12px"></div>
+      </section>
+    </main>
+
+    <nav class="tabbar" aria-label="主导航">
+      <a href="index.html"><span class="ti">☀️</span>今日</a>
+      <a href="calendar.html"><span class="ti">📅</span>日历</a>
+      <a href="tasks.html"><span class="ti">📝</span>我的任务</a>
+      <a href="stats.html" class="on"><span class="ti">📊</span>统计</a>
+      <a href="me.html"><span class="ti">👤</span>我的</a>
+    </nav>
+
+    <script src="./app.js"></script>
+    <script>
+      (function () {
+        var A = window.App;
+        function monday() {
+          var d = new Date();
+          var wd = (d.getDay() + 6) % 7;
+          d.setDate(d.getDate() - wd);
+          d.setHours(0, 0, 0, 0);
+          return d;
+        }
+        function weekRange() {
+          var a = monday();
+          var b = new Date(a); b.setDate(b.getDate() + 6);
+          return [A.ymd(a), A.ymd(b)];
+        }
+        function render() {
+          var tasks = A.getTasks().filter(function (t) { return t.enable; });
+          var totalDays = A.totalDoneDays();
+          var streak = A.streakCurrent();
+          var today = A.today();
+          var doneToday = A.doneOn(today).length;
+          // 总体完成率：假设按"自首条打卡以来每天都有任务"估算简化为：完成天数/已过去天数（按有记录为止）
+          var rate = tasks.length ? Math.round((doneToday && tasks.length ? doneToday / tasks.length : 0) * 100) : 0;
+
+          document.getElementById("totalDays").textContent = totalDays;
+          document.getElementById("streak").textContent = streak;
+          document.getElementById("todayDone").textContent = doneToday;
+          document.getElementById("rate").textContent = rate + "%";
+
+          // 本周
+          var rng = weekRange();
+          var weekDone = 0;
+          var map = A.getRecords();
+          (function () {
+            var cur = new Date(rng[0]);
+            var end = new Date(rng[1]);
+            while (cur <= end) {
+              var k = A.ymd(cur);
+              if (map[k] && map[k].length) weekDone++;
+              cur.setDate(cur.getDate() + 1);
+            }
+          })();
+          var weekPct = Math.min(100, Math.round((weekDone / 7) * 100));
+          document.getElementById("weekBar").style.width = weekPct + "%";
+          document.getElementById("weekTxt").textContent = "本周 " + weekDone + " 天有打卡记录 · 完成率 " + weekPct + "%";
+
+          // 徽章
+          var milestones = [
+            { d: 3, nm: "启程", ico: "🌱" },
+            { d: 7, nm: "一星", ico: "⭐" },
+            { d: 14, nm: "坚持", ico: "🔥" },
+            { d: 30, nm: "成习", ico: "💪" },
+            { d: 60, nm: "蜕变", ico: "🚀" },
+            { d: 100, nm: "百炼", ico: "🏆" },
+            { d: 365, nm: "年度", ico: "👑" }
+          ];
+          var badges = document.getElementById("badges");
+          badges.innerHTML = "";
+          var next = null;
+          var unlocked = 0;
+          milestones.forEach(function (m) {
+            var got = totalDays >= m.d;
+            if (got) unlocked++;
+            else if (!next) next = m;
+            var b = document.createElement("div");
+            b.className = "badge" + (got ? "" : " lock");
+            b.innerHTML = '<div class="ico">' + m.ico + "</div><div class=\"nm\">" + m.nm + "</div><div class=\"cd\">累计 " + m.d + " 天</div>";
+            badges.appendChild(b);
+          });
+          document.getElementById("nextGoal").textContent =
+            next ? "距离下一枚徽章「" + next.nm + "」还需 " + (next.d - totalDays) + " 天" : "已解锁全部徽章，太棒了！";
+        }
+        render();
+      })();
+    </script>
+    <style>
+      .stat-cards .k { color: var(--color-muted); }
+    </style>
+  </body>
+</html>

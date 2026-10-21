@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f5f1e8" />
+    <title>我的任务 · 日常打卡</title>
+    <link rel="stylesheet" href="./theme.css" />
+  </head>
+  <body class="mobile-shell" data-page-id="tasks">
+    <a class="skip-link" href="#main-content">跳转到主要内容</a>
+
+    <header class="app-header">
+      <div>
+        <div class="greet">管理你的打卡项目</div>
+        <div class="title">我的任务</div>
+      </div>
+      <span class="pill" id="countPill">0 项</span>
+    </header>
+
+    <main id="main-content" tabindex="-1">
+      <section class="panel" aria-labelledby="formTitle">
+        <div class="panel-label"><span id="formTitle">添加新任务</span></div>
+        <form id="addForm">
+          <div class="field">
+            <label for="fName">任务名称</label>
+            <input id="fName" type="text" placeholder="例如：每天晨读30分钟" required />
+          </div>
+          <div class="field">
+            <span class="seg" id="typeSeg">
+              <button type="button" class="seg-btn on" data-type="循环任务">循环任务</button>
+              <button type="button" class="seg-btn" data-type="临时任务">临时任务</button>
+            </span>
+          </div>
+          <div class="field">
+            <label for="fStart">开始日期</label>
+            <input id="fStart" type="date" />
+          </div>
+          <div class="field">
+            <label for="fEnd">截止日期（可选）</label>
+            <input id="fEnd" type="date" />
+          </div>
+          <div class="field">
+            <label for="fTarget">目标描述（可选）</label>
+            <textarea id="fTarget" placeholder="这个任务是为了什么？"></textarea>
+          </div>
+          <button class="btn block" type="submit">＋ 添加到打卡</button>
+        </form>
+      </section>
+
+      <section class="panel" aria-labelledby="listTitle2" data-anchor-id="tasks.list">
+        <div class="panel-label"><span id="listTitle2">任务列表</span></div>
+        <div id="taskList" class="empty">正在加载…</div>
+      </section>
+
+      <button class="btn ghost block" id="demoBtn" type="button">填充示例任务</button>
+    </main>
+
+    <nav class="tabbar" aria-label="主导航">
+      <a href="index.html"><span class="ti">☀️</span>今日</a>
+      <a href="calendar.html"><span class="ti">📅</span>日历</a>
+      <a href="tasks.html" class="on"><span class="ti">📝</span>我的任务</a>
+      <a href="stats.html"><span class="ti">📊</span>统计</a>
+      <a href="me.html"><span class="ti">👤</span>我的</a>
+    </nav>
+
+    <script src="./app.js"></script>
+    <script>
+      (function () {
+        var A = window.App;
+        var type = "循环任务";
+
+        document.querySelectorAll("#typeSeg .seg-btn").forEach(function (b) {
+          b.addEventListener("click", function () {
+            document.querySelectorAll("#typeSeg .seg-btn").forEach(function (x) { x.classList.remove("on"); });
+            b.classList.add("on");
+            type = b.dataset.type;
+          });
+        });
+
+        document.getElementById("fStart").value = A.today();
+
+        document.getElementById("addForm").addEventListener("submit", function (e) {
+          e.preventDefault();
+          var name = document.getElementById("fName").value.trim();
+          if (!name) return A.toast("请输入任务名称");
+          A.addTask({
+            name: name,
+            type: type,
+            start: document.getElementById("fStart").value || A.today(),
+            end: document.getElementById("fEnd").value,
+            target: document.getElementById("fTarget").value.trim()
+          });
+          e.target.reset();
+          document.getElementById("fStart").value = A.today();
+          A.toast("已添加任务");
+          render();
+        });
+
+        document.getElementById("demoBtn").addEventListener("click", function () {
+          ["每天喝水8杯", "晨跑/锻炼30分钟", "每晚回顾三件好事"].forEach(function (n) {
+            A.addTask({ name: n, type: "循环任务", start: A.today() });
+          });
+          A.toast("已填充示例任务");
+          render();
+        });
+
+        function render() {
+          var tasks = A.getTasks();
+          var listEl = document.getElementById("taskList");
+          document.getElementById("countPill").textContent = tasks.length + " 项";
+          if (!tasks.length) {
+            listEl.innerHTML = '<div class="empty">还没有任务，先添加一个吧</div>';
+            return;
+          }
+          listEl.innerHTML = "";
+          tasks.forEach(function (t) {
+            var row = document.createElement("div");
+            row.className = "row";
+            row.style.cssText = "opacity:" + (t.enable ? 1 : 0.5) + ";";
+            row.innerHTML =
+              '<div class="avatar">' + A.iconFor(t.name) + "</div>" +
+              '<div class="meta">' +
+                '<div class="name">' + A.esc(t.name) + ' <span class="tag ' + (t.enable ? "on" : "") + '">' + A.esc(t.type || "循环任务") + "</span></div>" +
+                '<div class="desc">' + (t.target ? A.esc(t.target) : "开始 " + (t.start || "")) + "</div>" +
+              "</div>" +
+              '<div class="inline-opts">' +
+                '<button class="op-btn neutral" data-op="toggle" title="' + (t.enable ? "停用" : "启用") + '">' + (t.enable ? "⏸" : "▶") + "</button>" +
+                '<button class="op-btn danger" data-op="del" title="删除">🗑</button>' +
+              "</div>";
+            row.querySelector('[data-op="toggle"]').addEventListener("click", function (e) {
+              e.stopPropagation();
+              t.enable = !t.enable;
+              var list = A.getTasks().map(function (x) { return x.id === t.id ? t : x; });
+              A.saveTasks(list);
+              A.toast(t.enable ? "已启用" : "已停用");
+              render();
+            });
+            row.querySelector('[data-op="del"]').addEventListener("click", function (e) {
+              e.stopPropagation();
+              if (!confirm("删除任务「" + t.name + "」？")) return;
+              A.saveTasks(A.getTasks().filter(function (x) { return x.id !== t.id; }));
+              A.toast("已删除");
+              render();
+            });
+            listEl.appendChild(row);
+          });
+        }
+
+        render();
+      })();
+    </script>
+    <style>
+      .btn { margin-top: 14px; }
+    </style>
+  </body>
+</html>

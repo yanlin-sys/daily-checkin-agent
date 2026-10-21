@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f5f1e8" />
+    <title>我的 · 日常打卡</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%233f6a53'/%3E%3Cpath d='M9 16.6l4.6 4.5L23 11.4' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./theme.css" />
+  </head>
+  <body class="mobile-shell" data-page-id="me">
+    <a class="skip-link" href="#main-content">跳转到主要内容</a>
+
+    <header class="app-header">
+      <div>
+        <div class="greet">账号与设置</div>
+        <div class="title">我的</div>
+      </div>
+      <span class="pill" id="mePill">未登录</span>
+    </header>
+
+    <main id="main-content" tabindex="-1">
+      <!-- ===== 面板：账号与设置 ===== -->
+      <section class="panel" aria-labelledby="accTitle">
+        <div class="panel-label"><span id="accTitle">账号与设置</span></div>
+        <div class="row">
+          <div class="avatar" id="meAvatar">·</div>
+          <div class="meta">
+            <div class="name" id="meNick">未登录</div>
+            <div class="desc" id="meHandle">@-</div>
+          </div>
+          <span class="tag on" id="meTag">当前登录</span>
+        </div>
+        <div class="acc-facts" id="meFacts"></div>
+        <div class="btn-row">
+          <button class="btn ghost block" id="switchBtn" type="button">切换账号</button>
+          <button class="btn ghost block" id="pwdBtn" type="button">修改密码</button>
+          <button class="btn block" id="logoutBtn" type="button">退出登录</button>
+        </div>
+      </section>
+
+      <!-- ===== 面板：外观主题 ===== -->
+      <section class="panel" aria-labelledby="themeTitle">
+        <div class="panel-label"><span id="themeTitle">外观主题 · 随账号保存</span></div>
+        <div class="chips">
+          <button class="chip on" data-theme="warm" type="button">暖纸</button>
+          <button class="chip" data-theme="green" type="button">深绿</button>
+        </div>
+      </section>
+
+      <!-- ===== 面板：数据管理 ===== -->
+      <section class="panel" aria-labelledby="dataTitle">
+        <div class="panel-label"><span id="dataTitle">数据管理 · 当前账号</span></div>
+        <div class="btn-row" style="margin-top:6px">
+          <button class="btn ghost block" id="exportBtn" type="button">导出当前账号数据（JSON 备份）</button>
+          <label class="btn ghost block" style="text-align:center;cursor:pointer" for="importFile">从备份导入到当前账号</label>
+          <input id="importFile" type="file" accept="application/json,application/octet-stream" style="display:none" />
+          <button class="btn block" id="clearBtn" type="button" style="background:var(--color-danger)">清空当前账号数据</button>
+        </div>
+        <div class="empty" style="padding:12px 0 0">数据保存在当前浏览器本地，不会上传云端</div>
+      </section>
+
+      <!-- ===== 面板：关于 ===== -->
+      <section class="panel" aria-labelledby="aboutTitle">
+        <div class="panel-label"><span id="aboutTitle">关于</span></div>
+        <div class="row">
+          <div class="avatar">版</div>
+          <div class="meta">
+            <div class="name">日常打卡</div>
+            <div class="desc">v1.3 · 纯前端本地多账号原型</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="tabbar" aria-label="主导航">
+      <a href="index.html"><span class="ti">☀️</span>今日</a>
+      <a href="calendar.html"><span class="ti">📅</span>日历</a>
+      <a href="tasks.html"><span class="ti">📝</span>我的任务</a>
+      <a href="stats.html"><span class="ti">📊</span>统计</a>
+      <a href="me.html" class="on"><span class="ti">👤</span>我的</a>
+    </nav>
+
+    <!-- ===== 底部操作面板 ===== -->
+    <div class="sheet-mask" id="sheetMask" hidden>
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+        <div class="sheet-head">
+          <span class="s-title" id="sheetTitle">操作</span>
+          <button class="sheet-x" id="sheetClose" type="button" aria-label="关闭">✕</button>
+        </div>
+        <div class="sheet-body" id="sheetBody"></div>
+      </div>
+    </div>
+
+    <script src="./app.js"></script>
+    <script>
+      (function () {
+        var A = window.App;
+        var eq = A.esc;
+        if (!A.auth.current()) return; // 未登录时 app.js 已铺满登录界面
+
+        var mask = document.getElementById("sheetMask");
+        var titleEl = document.getElementById("sheetTitle");
+        var bodyEl = document.getElementById("sheetBody");
+
+        /* ---------- 顶部账号卡 ---------- */
+        function paintAccount() {
+          var u = A.auth.current();
+          if (!u) return;
+          var users = A.auth.users();
+          var st = A.auth.stats(u.u);
+          document.getElementById("meAvatar").textContent = (u.n || u.u).charAt(0);
+          document.getElementById("meNick").textContent = u.n;
+          document.getElementById("meHandle").textContent = "@" + u.u;
+          document.getElementById("mePill").textContent = "@" + u.u;
+          document.getElementById("meFacts").innerHTML =
+            "<span>任务 " + st.tasks + " 项</span>" +
+            "<span>累计打卡 " + st.days + " 天</span>" +
+            "<span>打卡记录 " + st.done + " 次</span>" +
+            "<span>本机账号 " + users.length + " / " + A.auth.max + "</span>";
+          document.getElementById("switchBtn").textContent =
+            "切换账号（本机已保存 " + users.length + " 个）";
+        }
+
+        /* ---------- 面板开关 ---------- */
+        function openSheet(title, html, bind) {
+          titleEl.textContent = title;
+          bodyEl.innerHTML = html;
+          mask.hidden = false;
+          if (bind) bind(bodyEl);
+        }
+        function closeSheet() {
+          mask.hidden = true;
+          bodyEl.innerHTML = "";
+        }
+        document.getElementById("sheetClose").addEventListener("click", closeSheet);
+        mask.addEventListener("click", function (e) { if (e.target === mask) closeSheet(); });
+
+        function field(label, id, type, ph) {
+          return '<div class="field"><label for="' + id + '">' + eq(label) + "</label>" +
+            '<input id="' + id + '" type="' + type + '" placeholder="' + eq(ph) + '" autocomplete="off"></div>';
+        }
+        function val(id) {
+          var el = document.getElementById(id);
+          return el ? el.value : "";
+        }
+        function fail(id, msg) {
+          var el = document.getElementById(id);
+          if (el) el.textContent = msg;
+        }
+        function go() { setTimeout(function () { location.reload(); }, 420); }
+
+        /* ---------- 面板：切换账号 ---------- */
+        function openSwitch() {
+          var cur = A.auth.current();
+          var rows = A.auth.users().map(function (u) {
+            var st = A.auth.stats(u.u);
+            var isCur = u.u === cur.u;
+            return '<div class="row">' +
+              '<div class="avatar">' + eq((u.n || u.u).charAt(0)) + "</div>" +
+              '<div class="meta"><div class="name">' + eq(u.n) + "</div>" +
+              '<div class="desc">@' + eq(u.u) + " · 任务 " + st.tasks + " 项 · 打卡 " + st.days + " 天</div></div>" +
+              (isCur
+                ? '<span class="tag on">当前</span>'
+                : '<button class="btn ghost" type="button" data-switch="' + eq(u.u) + '">切换</button>' +
+                  '<button class="op-btn danger" type="button" data-del="' + eq(u.u) + '" aria-label="删除账号">✕</button>') +
+              "</div>";
+          }).join("");
+
+          var rest = A.auth.max - A.auth.count();
+          var addForm = '<div class="sheet-sep">新增账号（还可创建 ' + rest + " 个）</div>" +
+            field("昵称（可留空）", "nf_nick", "text", "例如：小豆") +
+            field("用户名", "nf_user", "text", "2–16 位字母 / 数字") +
+            field("密码", "nf_pass", "password", "至少 6 位") +
+            field("确认密码", "nf_pass2", "password", "再输入一次") +
+            '<div class="auth-err" id="nf_err"></div>' +
+            '<button class="btn block" id="nf_ok" type="button">创建并登录</button>';
+
+          openSheet("切换账号", rows + addForm, function (box) {
+            box.querySelectorAll("[data-switch]").forEach(function (b) {
+              b.addEventListener("click", function () { openSwitchConfirm(b.getAttribute("data-switch")); });
+            });
+            box.querySelectorAll("[data-del]").forEach(function (b) {
+              b.addEventListener("click", function () { openDelete(b.getAttribute("data-del")); });
+            });
+            document.getElementById("nf_ok").addEventListener("click", function () {
+              fail("nf_err", "");
+              var p1 = val("nf_pass"), p2 = val("nf_pass2");
+              if (p1 !== p2) { fail("nf_err", "两次输入的密码不一致"); return; }
+              var r = A.auth.register(val("nf_user"), p1, val("nf_nick"));
+              if (!r.ok) { fail("nf_err", r.msg); return; }
+              var l = A.auth.login(val("nf_user"), p1);
+              if (!l.ok) { fail("nf_err", l.msg); return; }
+              A.toast("已切换到 @" + r.user.u);
+              go();
+            });
+          });
+        }
+
+        function openSwitchConfirm(name) {
+          openSheet("切换到 @" + name,
+            '<div class="sheet-note">切换后进入该账号自己的任务与打卡记录，两边数据互不影响。</div>' +
+            field("请输入该账号的密码", "sw_pass", "password", "密码") +
+            '<div class="auth-err" id="sw_err"></div>' +
+            '<button class="btn block" id="sw_ok" type="button">确认切换</button>',
+            function () {
+              document.getElementById("sw_ok").addEventListener("click", function () {
+                var r = A.auth.switchTo(name, val("sw_pass"));
+                if (!r.ok) { fail("sw_err", r.msg); return; }
+                A.toast("已切换到 @" + name);
+                go();
+              });
+            });
+        }
+
+        function openDelete(name) {
+          openSheet("删除账号 @" + name,
+            '<div class="sheet-note">删除后该账号的任务、打卡记录与主题设置会一并清除，无法恢复。建议先导出备份。</div>' +
+            field("请输入该账号的密码以确认", "dl_pass", "password", "密码") +
+            '<div class="auth-err" id="dl_err"></div>' +
+            '<button class="btn block" id="dl_ok" type="button" style="background:var(--color-danger)">确认删除</button>',
+            function () {
+              document.getElementById("dl_ok").addEventListener("click", function () {
+                var r = A.auth.removeAccount(name, val("dl_pass"));
+                if (!r.ok) { fail("dl_err", r.msg); return; }
+                A.toast("已删除账号 @" + name);
+                paintAccount();
+                openSwitch();
+              });
+            });
+        }
+
+        /* ---------- 面板：修改密码 ---------- */
+        function openPwd() {
+          openSheet("修改密码",
+            field("当前密码", "pw_old", "password", "当前密码") +
+            field("新密码", "pw_new", "password", "至少 6 位") +
+            field("确认新密码", "pw_new2", "password", "再输入一次") +
+            '<div class="auth-err" id="pw_err"></div>' +
+            '<button class="btn block" id="pw_ok" type="button">保存新密码</button>',
+            function () {
+              document.getElementById("pw_ok").addEventListener("click", function () {
+                fail("pw_err", "");
+                var n1 = val("pw_new"), n2 = val("pw_new2");
+                if (n1 !== n2) { fail("pw_err", "两次输入的新密码不一致"); return; }
+                var r = A.auth.changePassword(val("pw_old"), n1);
+                if (!r.ok) { fail("pw_err", r.msg); return; }
+                A.toast("密码已更新");
+                closeSheet();
+              });
+            });
+        }
+
+        /* ---------- 事件绑定 ---------- */
+        document.getElementById("switchBtn").addEventListener("click", openSwitch);
+        document.getElementById("pwdBtn").addEventListener("click", openPwd);
+        document.getElementById("logoutBtn").addEventListener("click", function () {
+          if (!confirm("退出登录后将回到登录界面，确定退出吗？")) return;
+          A.auth.logout();
+          location.reload();
+        });
+
+        /* ---------- 外观主题（按账号保存） ---------- */
+        var THEME_KEY = A.auth.themeKey();
+        function applyTheme(t) {
+          document.body.dataset.theme = t;
+          document.querySelectorAll("[data-theme]").forEach(function (c) {
+            c.classList.toggle("on", c.dataset.theme === t);
+          });
+        }
+        document.querySelectorAll("[data-theme]").forEach(function (c) {
+          c.addEventListener("click", function () {
+            localStorage.setItem(THEME_KEY, c.dataset.theme);
+            applyTheme(c.dataset.theme);
+          });
+        });
+        applyTheme(localStorage.getItem(THEME_KEY) || "warm");
+
+        /* ---------- 数据管理（只作用于当前账号） ---------- */
+        document.getElementById("exportBtn").addEventListener("click", function () {
+          var u = A.auth.current();
+          var data = {
+            account: u.u,
+            tasks: A.getTasks(),
+            records: A.getRecords(),
+            exportedAt: new Date().toISOString()
+          };
+          var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "checkin-backup-" + u.u + ".json";
+          a.click();
+          URL.revokeObjectURL(a.href);
+          A.toast("已导出 @" + u.u + " 的备份");
+        });
+
+        document.getElementById("importFile").addEventListener("change", function (e) {
+          var file = e.target.files[0];
+          if (!file) return;
+          var reader = new FileReader();
+          reader.onload = function () {
+            try {
+              var data = JSON.parse(reader.result);
+              if (Array.isArray(data.tasks)) {
+                A.saveTasks(data.tasks);
+                localStorage.removeItem(A.KEY_R);
+              }
+              if (data.records) A.saveRecords(data.records);
+              A.toast("已导入到当前账号");
+              setTimeout(function () { location.reload(); }, 500);
+            } catch (err) {
+              A.toast("导入失败：文件格式不正确");
+            }
+          };
+          reader.readAsText(file);
+          e.target.value = "";
+        });
+
+        document.getElementById("clearBtn").addEventListener("click", function () {
+          var u = A.auth.current();
+          if (!confirm("确定清空 @" + u.u + " 的全部任务与打卡记录吗？该操作不可恢复，建议先导出备份。")) return;
+          localStorage.removeItem(A.KEY_T);
+          localStorage.removeItem(A.KEY_R);
+          localStorage.removeItem(A.KEY_TOTALS);
+          A.toast("已清空当前账号数据");
+          setTimeout(function () { location.reload(); }, 500);
+        });
+
+        paintAccount();
+      })();
+    </script>
+
+    <style>
+      body[data-theme="green"] {
+        --color-background: #eef2ea;
+        --color-surface-soft: #dfe8db;
+        --color-glass: rgba(255, 255, 255, 0.66);
+      }
+    </style>
+  </body>
+</html>

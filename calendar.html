@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f5f1e8" />
+    <title>日历 · 日常打卡</title>
+    <link rel="stylesheet" href="./theme.css" />
+  </head>
+  <body class="mobile-shell" data-page-id="calendar">
+    <a class="skip-link" href="#main-content">跳转到主要内容</a>
+
+    <header class="app-header">
+      <div>
+        <div class="greet">打卡热力</div>
+        <div class="title" id="calTitle">打卡日历</div>
+      </div>
+      <span class="pill" id="monthStat">本月</span>
+    </header>
+
+    <main id="main-content" tabindex="-1">
+      <section class="panel" aria-labelledby="heatTitle">
+        <div class="panel-label"><span id="heatTitle">本月打卡热力图</span></div>
+        <div class="h-dow">
+          <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+        </div>
+        <div class="heat" id="heat"></div>
+        <div class="row" style="border:none;margin-top:14px;padding:0">
+          <span class="tag" style="background:var(--color-soft)">未打卡</span>
+          <span class="tag" style="background:#d3e0d2">完成</span>
+          <span class="tag" style="background:var(--color-primary);color:#fff">全完成</span>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="dayTitle">
+        <div class="panel-label"><span id="dayTitle" class="only-text">点击日期查看</span></div>
+        <div id="dayDetail" class="empty">点击上方某一天查看当天完成详情</div>
+      </section>
+    </main>
+
+    <nav class="tabbar" aria-label="主导航">
+      <a href="index.html"><span class="ti">☀️</span>今日</a>
+      <a href="calendar.html" class="on"><span class="ti">📅</span>日历</a>
+      <a href="tasks.html"><span class="ti">📝</span>我的任务</a>
+      <a href="stats.html"><span class="ti">📊</span>统计</a>
+      <a href="me.html"><span class="ti">👤</span>我的</a>
+    </nav>
+
+    <script src="./app.js"></script>
+    <script>
+      (function () {
+        var A = window.App;
+        var heat = document.getElementById("heat");
+        var now = new Date();
+        var month = now.getMonth();
+        var year = now.getFullYear();
+
+        function inMonth(d) { return d.getMonth() === month; }
+
+        function render() {
+          document.getElementById("calTitle").textContent = year + "年" + (month + 1) + "月";
+          var first = new Date(year, month, 1);
+          var startDow = (first.getDay() + 6) % 7; // 周一=0
+          var daysInMonth = new Date(year, month + 1, 0).getDate();
+          var map = A.getRecords();
+          var doneDays = 0;
+
+          heat.innerHTML = "";
+          for (var i = 0; i < startDow; i++) {
+            var ph = document.createElement("button");
+            ph.className = "h-cell empty";
+            ph.disabled = true;
+            heat.appendChild(ph);
+          }
+          for (var day = 1; day <= daysInMonth; day++) {
+            var d = new Date(year, month, day);
+            var key = A.ymd(d);
+            var list = map[key] || [];
+            var tasks = A.getTasks().filter(function (t) { return t.enable; });
+            var full = tasks.length && list.length >= tasks.length;
+            var partial = list.length > 0 && list.length < tasks.length;
+            var cell = document.createElement("button");
+            cell.className = "h-cell";
+            if (full) cell.classList.add("lv3");
+            else if (partial) cell.classList.add("lv2");
+            else if (list.length) cell.classList.add("lv1");
+            if (inMonth(d) && d.getFullYear() === now.getFullYear() && day === now.getDate()) cell.classList.add("today");
+            cell.textContent = day;
+            if (list.length) doneDays++;
+            (function (key, day) {
+              cell.addEventListener("click", function () { showDay(key, day); });
+            })(key, day);
+            heat.appendChild(cell);
+          }
+          document.getElementById("monthStat").textContent = "本月" + doneDays + "天完成";
+        }
+
+        function showDay(key, day) {
+          var label = document.getElementById("dayTitle");
+          label.textContent = key + " 的完成情况";
+          var map = A.getRecords();
+          var done = map[key] || [];
+          var tasks = A.getTasks();
+          var box = document.getElementById("dayDetail");
+          box.className = "tl";
+          box.innerHTML = "";
+          if (!done.length) {
+            box.className = "empty";
+            box.textContent = "这一天没有打卡记录";
+            return;
+          }
+          done.forEach(function (id) {
+            var t = tasks.filter(function (x) { return x.id === id; })[0];
+            if (!t) return;
+            var it = document.createElement("div");
+            it.className = "tl-item";
+            it.innerHTML = '<div class="t-text">✅ ' + A.esc(t.name) + "</div>";
+            box.appendChild(it);
+          });
+        }
+
+        render();
+        showDay(A.ymd(now), now.getDate());
+      })();
+    </script>
+  </body>
+</html>
